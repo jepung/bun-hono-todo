@@ -4,7 +4,9 @@
     "dev": "bun run --hot src/index.ts"
   },
   "dependencies": {
+    "@hono/zod-openapi": "^0.18.3",
     "@hono/zod-validator": "^0.4.2",
+    "@scalar/hono-api-reference": "^0.5.170",
     "hono": "^4.6.20",
     "http-status-codes": "^2.3.0"
   },
