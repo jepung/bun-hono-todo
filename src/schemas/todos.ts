@@ -1,27 +1,49 @@
-import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
-import { ContentfulStatusCode } from "hono/utils/http-status";
-import HTTP_STATUS_CODE from "http-status-codes";
+import { z } from "@hono/zod-openapi";
 
-const addUpdateTodoSchema = zValidator(
-  "json",
-  z.object({
-    todo: z.string(),
+const TodoSchema = z.object({
+  id: z.string().openapi({
+    example: crypto.randomUUID(),
   }),
-  (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          message: "bad request",
-          errors: result.error.errors.map((err) => ({
-            field: err.path[0],
-            message: err.message,
-          })),
-        },
-        HTTP_STATUS_CODE.BAD_REQUEST as ContentfulStatusCode
-      );
-    }
-  }
-);
+  todo: z.string().openapi({
+    example: "Go to grocery store",
+  }),
+  createdAt: z.string().openapi({
+    example: new Date().toISOString(),
+  }),
+  updatedAt: z.string().openapi({
+    example: new Date().toISOString(),
+  }),
+});
 
-export default addUpdateTodoSchema;
+const FieldErrorSchema = z.object({
+  field: z.string().openapi({
+    example: "todo",
+  }),
+  message: z.string().openapi({
+    example: "Required",
+  }),
+});
+
+const addTodoRequestSchema = z
+  .object({
+    todo: z.string(),
+  })
+  .openapi({
+    example: {
+      todo: "Go to the grocery store",
+    },
+  });
+
+const addTodoResponseSchema = z.object({
+  message: z.string().openapi({
+    example: "success",
+  }),
+  data: TodoSchema,
+});
+
+export {
+  addTodoRequestSchema,
+  addTodoResponseSchema,
+  FieldErrorSchema,
+  TodoSchema,
+};

@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import HTTP_STATUS_CODE from "http-status-codes";
 
-interface IBaseReponse<T> {
+export interface IBaseReponse<T> {
   message?: string;
   data?: T;
   length?: number;

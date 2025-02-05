@@ -1,90 +1,267 @@
-import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { addUpdateTodoMiddleware } from "../middleware/todos";
+import {
+  addTodoRequestSchema,
+  addTodoResponseSchema,
+  FieldErrorSchema,
+  TodoSchema,
+} from "../schemas/todos";
+import { createRoute, z } from "@hono/zod-openapi";
 
-import { HTTPException } from "hono/http-exception";
-import HTTP_STATUS_CODE from "http-status-codes";
-import { ContentfulStatusCode } from "hono/utils/http-status";
-import addUpdateTodoSchema from "../schemas/todos";
-import DUMMY_TODO from "../models/todos";
-import { ResponseError, ResponseSuccess } from "../models/response";
+export const todosRoute_getTodos = createRoute({
+  summary: "Get todos",
+  tags: ["Todos"],
+  description: "Get list of all todos",
+  method: "get",
+  path: "/",
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "success",
+            }),
+            data: TodoSchema.array(),
+          }),
+        },
+      },
+      description: "success",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "internal server error",
+            }),
+          }),
+        },
+      },
+      description: "internal server error",
+    },
+  },
+});
 
-const app = new Hono()
-  .get("/", (c) => {
-    try {
-      return ResponseSuccess(c, HTTP_STATUS_CODE.OK, "success", DUMMY_TODO);
-    } catch (e) {
-      const err = e as HTTPException;
-      return ResponseError(c, err);
-    }
-  })
-  .get("/:id", (c) => {
-    try {
-      const todo = DUMMY_TODO.find((t) => t.id === c.req.param("id"));
-      if (!todo) {
-        throw new HTTPException(
-          HTTP_STATUS_CODE.NOT_FOUND as ContentfulStatusCode,
-          { message: "not found" }
-        );
-      }
-      return ResponseSuccess(c, HTTP_STATUS_CODE.OK, "success", todo);
-    } catch (e) {
-      const err = e as HTTPException;
-      return ResponseError(c, err);
-    }
-  })
-  .post("/", addUpdateTodoSchema, async (c) => {
-    try {
-      const body = c.req.valid("json");
-      const newData = {
-        id: crypto.randomUUID().toString(),
-        todo: body.todo,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      DUMMY_TODO.push(newData);
-      return ResponseSuccess(c, HTTP_STATUS_CODE.OK, "success", newData);
-    } catch (e) {
-      const err = e as HTTPException;
-      return ResponseError(c, err);
-    }
-  })
-  .patch("/:id", addUpdateTodoSchema, async (c) => {
-    try {
-      const id = c.req.param("id");
-      const body = c.req.valid("json");
-      const todoIndex = DUMMY_TODO.findIndex((t) => t.id === id);
-      if (todoIndex < 0) {
-        throw new HTTPException(
-          HTTP_STATUS_CODE.NOT_FOUND as ContentfulStatusCode,
-          { message: "not found" }
-        );
-      }
-      DUMMY_TODO[todoIndex] = {
-        ...DUMMY_TODO[todoIndex],
-        todo: body.todo,
-        updatedAt: new Date().toISOString(),
-      };
-      return ResponseSuccess(c, HTTP_STATUS_CODE.OK, "success");
-    } catch (e) {
-      const err = e as HTTPException;
-      return ResponseError(c, err);
-    }
-  })
-  .delete("/:id", (c) => {
-    try {
-      const id = c.req.param("id");
-      const todoIndex = DUMMY_TODO.findIndex((t) => t.id === id);
-      if (todoIndex < 0) {
-        throw new HTTPException(
-          HTTP_STATUS_CODE.NOT_FOUND as ContentfulStatusCode,
-          { message: "not found" }
-        );
-      }
-      DUMMY_TODO.splice(todoIndex, 1);
-      return ResponseSuccess(c, HTTP_STATUS_CODE.OK, "success");
-    } catch (e) {
-      const err = e as HTTPException;
-      return ResponseError(c, err);
-    }
-  });
+export const todosRoute_addTodo = createRoute({
+  summary: "Add todo",
+  tags: ["Todos"],
+  description: "Adding new todo",
+  method: "post",
+  path: "/",
+  middleware: addUpdateTodoMiddleware,
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: addTodoRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: addTodoResponseSchema,
+        },
+      },
+      description: "success",
+    },
+    400: {
+      content: {
+        "application/json": {
+          schema: FieldErrorSchema.array(),
+        },
+      },
+      description: "bad request",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "internal server error",
+            }),
+          }),
+        },
+      },
+      description: "internal server error",
+    },
+  },
+});
 
-export default app;
+export const todosRoute_getTodoById = createRoute({
+  summary: "Get todo by id",
+  tags: ["Todos"],
+  method: "get",
+  path: "/:id",
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "success",
+            }),
+            data: TodoSchema,
+          }),
+        },
+      },
+      description: "succcess",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "not found",
+            }),
+          }),
+        },
+      },
+      description: "not found",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "internal server error",
+            }),
+          }),
+        },
+      },
+      description: "internal server error",
+    },
+  },
+});
+
+export const todosRoute_updateTodo = createRoute({
+  summary: "Update todo",
+  tags: ["Todos"],
+  method: "patch",
+  path: "/:id",
+  middleware: addUpdateTodoMiddleware,
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            todo: z.string(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "success",
+            }),
+          }),
+        },
+      },
+      description: "success",
+    },
+    400: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "bad request",
+            }),
+            errors: FieldErrorSchema.array(),
+          }),
+        },
+      },
+      description: "bad request",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "not found",
+            }),
+          }),
+        },
+      },
+      description: "not found",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "internal server error",
+            }),
+          }),
+        },
+      },
+      description: "internal server error",
+    },
+  },
+});
+
+export const todosRoute_deleteTodo = createRoute({
+  summary: "Delete todo",
+  tags: ["Todos"],
+  method: "delete",
+  path: "/:id",
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "success",
+            }),
+          }),
+        },
+      },
+      description: "success",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "not found",
+            }),
+          }),
+        },
+      },
+      description: "not found",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string().openapi({
+              example: "internal server error",
+            }),
+          }),
+        },
+      },
+      description: "internal server error",
+    },
+  },
+});
